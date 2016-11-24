@@ -1,0 +1,12 @@
+Package: kostyan
+Type: Package
+Title: Kostyan's functions
+Version: 0.2
+Date: 2015-09-25
+Author: I wrote it
+Maintainer: Who to complain to <yourfault@somewhere.net>
+Description: Package contains Kostyan's utility functions for working with
+    datasets
+License: Licensed to Kostyan
+LazyData: TRUE
+RoxygenNote: 5.0.1

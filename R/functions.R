@@ -21,17 +21,17 @@ classify.columns <- function(data, y.name="target", max.cardinality=6)
   df$N <- nrow(data)
   for (i in 1:ncol(data))
   {
-
+    
     cat(paste("\rProcessing column ",i,"/",ncol(data),"\r",sep=""))
-
+    
     df$lev[i] <- length(levels(as.factor(data[,i])))
     df$current.class[i] <- class(data[,i])
     df$missing[i] <- ifelse(df$current.class[i]=='factor', sum(data[,i]==""), sum(is.na(data[,i])))
-
+    
     # Check for Date columns (of the form digits, not-digit, digits, not-digit, digits)
     if (sum(grepl("^\\d{1,4}[^0-9]\\d{1,2}[^0-9]\\d{1,4}$", data[,i])) > 10)
       df$proposed.class[i] <- 'Date'
-
+    
   }
   df$current.class[df$var==y.name] <- df$proposed.class[df$var %in% y.name] <- "target"
   df$proposed.class[df$current.class %in% c("numeric","integer")] <- ifelse(df$lev[df$current.class %in% c("numeric","integer")] < max.cardinality, "factor", "numeric")
@@ -39,9 +39,9 @@ classify.columns <- function(data, y.name="target", max.cardinality=6)
   df$proposed.class[df$current.class %in% c("factor","character","logical") & df$proposed.class!="Date"] <- "factor"
   df$proposed.class[df$current.class %in% c("Date")] <- "Date"
   df$proposed.class[df$lev == df$N] <- "id"
-
+  
   return (df)
-
+  
 }
 
 #' Get proposed type conversions
@@ -65,31 +65,31 @@ get.proposed.conversions <- function(df)
 #' @export
 get.date.format <- function(var)
 {
-
+  
   require(stringr)
-
+  
   if (sum(grepl('^\\d{1,2}.\\d{1,2}.\\d{4}$', var)) > 10)
   {
     delimiter <- setdiff(unique(substr(var,nchar(as.character(var))-4,nchar(as.character(var))-4)), c(NA, ""))[1]
     m <- max(as.numeric(str_extract(substr(var,1,2), "\\d+")), na.rm=TRUE)
     return (ifelse(m>12,paste("%d","%m","%Y",sep=delimiter),paste("%m","%d","%Y",sep=delimiter)))
   }
-
+  
   if (sum(grepl('^\\d{1,2}.\\d{1,2}.\\d{2}$', var)) > 10)
   {
     delimiter <- setdiff(unique(substr(var,nchar(as.character(var))-2,nchar(as.character(var))-2)), c(NA, ""))[1]
     m <- max(as.numeric(str_extract(substr(var,1,2), "\\d+")), na.rm=TRUE)
     return (ifelse(m>12,paste("%d","%m","%y",sep=delimiter),paste("%m","%d","%y",sep=delimiter)))
   }
-
+  
   if (sum(grepl('^\\d{4}.\\d{1,2}.\\d{1,2}$', var)) > 10)
   {
     delimiter <- setdiff(unique(substr(var,5,5)), c(NA, ""))[1]
     return (paste("%Y","%m","%d",sep=delimiter))
   }
-
+  
   return (NA)
-
+  
 }
 
 
@@ -112,16 +112,16 @@ convert.columns <- function(df, data)
   convert.to.factor <- df$var[df$current.class != df$proposed.class & df$proposed.class=="factor"]
   data[,convert.to.factor] <- as.data.frame(apply(data[,convert.to.factor], 2, function(x) as.factor(x)))
   print(paste("Converted ", length(convert.to.factor)," columns to factor"))
-
+  
   convert.to.numeric <- df$var[df$current.class != df$proposed.class & df$proposed.class=="numeric"]
   data[,convert.to.numeric] <- as.data.frame(apply(data[,convert.to.numeric], 2, function(x) as.numeric(x)))
   print(paste("Converted ", length(convert.to.numeric)," columns to numeric"))
-
+  
   convert.to.date <- df$var[df$current.class != df$proposed.class & df$proposed.class=="Date"]
   for (var in convert.to.date)
     data[,var] <- as.Date(data[,var], get.date.format(data[,var]))
   print(paste("Converted ", length(convert.to.date)," columns to Date"))
-
+  
   # Generate
   # if (is.null(get.date.columns(data))==FALSE) generate.date.features(data, get.date.columns(data))
   return(data)
@@ -194,17 +194,17 @@ generate.date.features <- function(data, date.variables, overwrite=FALSE)
   for (i in date.variables)
     if (class(data[,i]) != "Date")
       stop("All variables must of class Date")
-
+  
   for (i in date.variables)
     for (j in c(".month.num",".day.num",".year.num",".month",".day",".year"))
-    if (paste(i,j,sep="") %in% colnames(data))
-      if (overwrite)
-        warning(paste("Variable '", paste(i,j,sep=""),"' is already defined in input data frame", sep=""))
-      else
-        stop(paste("Variable '", paste(i,j,sep=""),"' is already defined in input data frame. To overwrite specify parameter 'overwrite=TRUE'.", sep=""))
-
+      if (paste(i,j,sep="") %in% colnames(data))
+        if (overwrite)
+          warning(paste("Variable '", paste(i,j,sep=""),"' is already defined in input data frame", sep=""))
+  else
+    stop(paste("Variable '", paste(i,j,sep=""),"' is already defined in input data frame. To overwrite specify parameter 'overwrite=TRUE'.", sep=""))
+  
   result <- data
-
+  
   for (i in date.variables)
   {
     result[,paste(i,".month.num",sep="")] <- as.numeric(format(data[,i], "%m"))
@@ -251,9 +251,9 @@ get.chisq.importance <- function(x, y)
 #' @export
 get.auc.importance <- function(x,y)
 {
-
-  require(pROC)
-
+  
+  require(AUC)
+  
   variables <- colnames(x)
   n.variables <- length(variables)
   df <- data.frame(var=rep('',n.variables), auc=rep(NA,n.variables), fill.rate=rep(NA,n.variables), stringsAsFactors = FALSE)
@@ -262,7 +262,7 @@ get.auc.importance <- function(x,y)
     cat(paste("\rProcessing variable [",i,"/",n.variables,"]\r",sep=""))
     df$var[i] <- variables[i]
     if ((class(x[,i]) %in% c("numeric","integer"))==FALSE) next
-    df$auc[i] <- round(roc(y, x[,i])$auc,5)
+    df$auc[i] <- round(AUC::auc(AUC::roc(x[,i],y),5))
     df$fill.rate[i] <- 1 - round((sum(is.na(x[,i])) / nrow(x)), 5)
   }
   cat("\n")
@@ -281,16 +281,16 @@ get.auc.importance <- function(x,y)
 #' @return data frame with variable names sorted by RandomForest statistics
 #' @export
 get.rf.importance <- function(x,y){
-
+  
   require(randomForest)
-
+  
   print("Fitting Random Forest on all data. This might take some time.")
   rf.fit <- randomForest(x, y, ntree=100, importance=TRUE)
   result <- as.data.frame(rf.fit$importance[,c('MeanDecreaseAccuracy','MeanDecreaseGini')])
   result$var <- rownames(result)
   rownames(result) <- NULL
   result <- result[order(result$MeanDecreaseAccuracy, decreasing=TRUE), c('var','MeanDecreaseAccuracy','MeanDecreaseGini')]
-
+  
   return(result)
 }
 
@@ -305,22 +305,22 @@ get.rf.importance <- function(x,y){
 #' @export
 get.var.importance <- function(x,y)
 {
-
+  
   print("Computing AUC based importance")
   auc.imp <- get.auc.importance(x, y)
   rownames(auc.imp) <- NULL
   auc.imp$num <- as.numeric(rownames(auc.imp))
-
+  
   print("Computing Random Forest based importance")
   rf.imp <- get.rf.importance(x, y)
   rownames(rf.imp) <- NULL
   rf.imp$num <- as.numeric(rownames(rf.imp))
-
+  
   print("Computing Chi-squared based importance")
   chisq.imp <- get.chisq.importance(x, y)
   rownames(chisq.imp) <- NULL
   chisq.imp$num <- as.numeric(rownames(chisq.imp))
-
+  
   print("Preparing result table")
   x <- merge(auc.imp[,c('var','num')], rf.imp[,c('var','num')], by='var', all.x=TRUE, all.y=TRUE)
   x <- merge(x, chisq.imp[,c('var','num')], by='var', all.x=TRUE, all.y=TRUE)
@@ -328,9 +328,9 @@ get.var.importance <- function(x,y)
   x$TOTAL.RANK <- x$AUC.RANK + x$RF.RANK + x$CHISQ.RANK
   x<-x[order(x$TOTAL.RANK),]
   rownames(x) <- NULL
-
+  
   return(x)
-
+  
 }
 
 # compute.woe <- function(factor, target)
@@ -387,47 +387,47 @@ get.var.importance <- function(x,y)
 #' Beta
 #' @export
 get.rf.subset.quality <- function(data, sorted.variables, y.name, analyze.top.n=50, RF.trees=100, times=1, trainSplit=0.7, logging='sparse'){
-
+  
   variable.subsets <- data.frame(var=sorted.variables, accuracy=rep(0, length(sorted.variables)), auc=rep(0, length(sorted.variables)))
-
+  
   for (current.repeat in 1:times)
   {
-
+    
     print(paste("Iteration ", current.repeat))
-
+    
     trainIndex <- createDataPartition(data[,y.name], p=trainSplit, list=FALSE)
     data.train <- data[trainIndex,]
     data.test <- data[-trainIndex,]
-
+    
     if (length(levels(as.factor(data[,y.name]))) == 2)
       compute.auc=TRUE
-
+    
     for (i in 2:analyze.top.n)
     {
       variable.subsets$var[i] <- sorted.variables[i]
       if (logging != 'sparse') print(paste("[Cycle ", current.repeat, "] Evalutaing for top ", i," subset: ", sorted.variables[i], sep=""))
       rf.fit <- randomForest(y=data.train[,y.name], x=data.train[,sorted.variables[1:i]], n.tree=RF.trees, importance=FALSE)
-
+      
       # For all kinds of classification compute accuracy
       scores.class <- predict(rf.fit, data.test[,sorted.variables[1:i]], type="response")
       variable.subsets$accuracy[i] <- variable.subsets$accuracy[i] + confusionMatrix(data.test[,y.name], scores.class)$overall[1]
-
+      
       # For binary classification compute AUCs
       if (compute.auc)
       {
         scores.prob <- predict(rf.fit, data.test[,sorted.variables[1:i]], type="prob")
         variable.subsets$auc[i] <- variable.subsets$auc[i] + roc(as.factor(data.test[,y.name]), scores.prob[,2])$auc
       }
-
+      
       if (logging != 'sparse') print(paste("Accuracy=", round(variable.subsets$accuracy[i],5), sep=""))
     }
-
+    
     #variable.subsets[,paste(accuracy,".", current.repeat, sep="")] <- variable.subsets$accuracy
   }
-
+  
   variable.subsets$accuracy <- round(variable.subsets$accuracy / times, 5)
   variable.subsets$auc <- round(variable.subsets$auc / times, 5)
-
+  
   plot(variable.subsets$auc[2:analyze.top.n], type='l')
   #predict(loess(~as.numeric(rownames(voip.money))))[1:2000]))
   return(variable.subsets)
@@ -448,23 +448,23 @@ get.rf.subset.quality <- function(data, sorted.variables, y.name, analyze.top.n=
 #' @export
 group.factor <- function(x, top.values=10, min.frequency=NA)
 {
-
+  
   require(plyr)
-
+  
   if (class(x)!="factor")
     stop("Variable must be factor")
-
+  
   # If there are less levels in variable than "top.values" parameter
   top.values <- min(length(levels(x)), top.values)
-
+  
   x <- data.frame(x)
   colnames(x) <- c("x")
-
+  
   counts <- count(x)
   counts <- counts[order(counts$freq, decreasing=TRUE),]
   counts$group <- rep("", nrow(counts))
   rownames(counts) <- NULL
-
+  
   # If we choose to select by minimum frequency, set top.values accordingly [1,n]
   if (!is.na(min.frequency))
   {
@@ -475,15 +475,15 @@ group.factor <- function(x, top.values=10, min.frequency=NA)
       top.values <- max(which(counts$freq >= min.frequency))
     }
   }
-
+  
   # Set group values for top categories
   counts$group[1:top.values] <- as.character(counts$x[1:top.values])
-
+  
   # Set "other" for all other categories
   if(nrow(counts) > top.values) counts$group[(top.values+1):nrow(counts)] <- rep("other", nrow(counts)-top.values)
-
+  
   return(factor(join(x,counts[,c("x","group")], by="x", type="left")[[2]]))
-
+  
 }
 
 
@@ -506,27 +506,27 @@ apply.factor.grouping <- function(data, variables, new.data, other.factor="other
 {
   for (i in 1:length(variables))
   {
-
+    
     # if (length(intersect(paste("group.", variables, sep=""), new.data)) > 0)
     #  stop(paste("New data already contains variable",intersect(paste("group.", variables, sep=""),sep="")))
-
+    
     # Use initial dataset as mapping (value -> group)
     group.map <- unique(data.frame(var=data[,variables[i]], group=as.character(data[,variables[i]]), stringsAsFactors=FALSE))
-
+    
     # Set name for the new variable
     colnames(group.map) <- c("var", paste("group.",variables[i],sep=""))
     # colnames(group.map) <- c("var", variables[i])
-
+    
     # Merge created group variable into the new dataset
     new.data <- merge(new.data, group.map, by.x=variables[i], by.y="var", all.x=TRUE)
-
+    
     # Select just merged variable
     current.vector <- new.data[,paste("group.",variables[i], sep="")]
     # current.vector <- new.data[,variables[i]]
-
+    
     # If the value in new dataset didn't match with the mapping, set group to "OTHER" (name of the group can be changed in parameters)
     current.vector[is.na(current.vector)] <- "other"
-
+    
     # Set new group variable to factor
     # new.data[,paste("group.",variables[i], sep="")] <- as.factor(current.vector)
     new.data[,variables[i]] <- as.factor(current.vector)
@@ -543,21 +543,21 @@ apply.factor.grouping <- function(data, variables, new.data, other.factor="other
 #' @export
 optimal.factor.grouping <- function(x,y, fit.type="glm", max.levels=30)
 {
-
+  
   require(randomForest)
-  require(pROC)
+  require(AUC)
   require(caret)
   require(klaR)
-
+  
   if (!("0" %in% levels(y) & "1" %in% levels(y)))
     stop("Please set target values to 0 and 1. Current version works only with numeric values")
-
+  
   if (fit.type=="glm")
     print("Fit model = GLM (logistic regression)")
   if (fit.type=="rf")
     print("Fit model = Random Forest")
-
-
+  
+  
   trainIndex <- createDataPartition(y, p=0.7, list=FALSE)
   y.train <- y[trainIndex]
   y.test <- y[-trainIndex]
@@ -573,18 +573,18 @@ optimal.factor.grouping <- function(x,y, fit.type="glm", max.levels=30)
     {
       model.fit <- glm(formula("y~x"), data=data.frame(x=x.grouped, y=y), family=binomial(logit))
       model.pred <- predict(model.fit, data.frame(x=x.grouped), type="response")
-      auc <- as.numeric(roc(y, model.pred)$auc)
+      auc <- as.numeric(AUC:auc(AUC:roc(model.pred, y)))
       woes <- c(woes, woe(formula("y~x"), data=data.frame(x=x.grouped, y=y))$IV)
     }
     if (fit.type=="rf")
     {
       model.fit <- randomForest(data.frame(x=x.train), y.train, ntree=100)
       model.pred <- predict(model.fit, data.frame(x=x.test), type="prob")[,1]
-      auc <- as.numeric(roc(y.test, model.pred)$auc)
+      auc <- as.numeric(AUC:auc(AUC:roc(model.pred,y.test)))
     }
-
+    
     result <- c(result, auc)
-
+    
   }
   cat(paste(" => Optimal number of groups=",which.max(result)))
   cat("\n")
@@ -624,10 +624,10 @@ optimal.factor.grouping <- function(x,y, fit.type="glm", max.levels=30)
 #' @export
 get.auc <- function(y,x)
 {
-
-  require(pROC)
-
-  auc.df <- as.data.frame(sapply(x,function(a) roc(y,a)$auc))
+  
+  require(AUC)
+  
+  auc.df <- as.data.frame(sapply(x,function(a) AUC::auc(AUC::roc(a,y))))
   colnames(auc.df) <- "auc"
   auc.df$var <- rownames(auc.df)
   rownames(auc.df) <- NULL
@@ -656,18 +656,18 @@ get.auc <- function(y,x)
 #' @export
 get.top.subset <- function(variables, data, target)
 {
-
+  
   require(caret)
-
+  
   subsets.df <- data.frame(
     subset.num<-rep("",length(variables)),
     auc<-rep(0, length(variables)),stringsAsFactors = FALSE)
   colnames(subsets.df) <- c("subset.num","auc")
-
+  
   trainIndex <- createDataPartition(data[,target], p=0.7, list=FALSE)
   train.data <- data[trainIndex,]
   test.data <- data[-trainIndex,]
-
+  
   for (i in 1:length(variables))
   {
     cat(paste("\rProcessing variable: ", i," / ",length(variables),sep=""))
@@ -817,11 +817,11 @@ set.missing.factors.to.NA <- function(data, variables, logging=FALSE)
   for (i in variables)
   {
     if (class(data[,i]) != "factor") stop("All variables must be factors!")
-
+    
     if (logging) print(paste("Replaced ",sum(is.na(data[,i]))," missing values for factor ", i))
     data[,i] <- as.character(data[,i])
     data[is.na(data[,i]), i] <- "NA"
-
+    
     if (logging) print(paste("Replaced ",sum(data[,i]=="")," blank values for factor ", i))
     data[data[,i]=="", i] <- "NA"
     data[,i] <- factor(data[,i])
@@ -844,10 +844,10 @@ set.missing.to.prediction <- function(x)
     print(paste("Processing variable ", current.var, sep=""))
     missingIndex <- is.na(x[,current.var])
     non.missingIndex <- !is.na(x[,current.var])
-
+    
     lm.fit <- lm(as.formula(paste(current.var,"~.",sep="")), data=x[non.missingIndex,])
     lm.pred <- as.vector(predict(lm.fit, x[missingIndex,]))
-
+    
     print(paste("Could not impute for ", sum(is.na(lm.pred)), " cases out of ", length(lm.pred), sep=""))
     huy <-  x[, current.var]
     huy[missingIndex] <- lm.pred
@@ -870,16 +870,16 @@ set.missing.to.prediction <- function(x)
 #' @export
 cv.glm <- function(formula, data, target.var, n, fit.type="glm", train.rate=0.7)
 {
-
+  
   require(caret)
   require(randomForest)
-  require(pROC)
-
+  require(AUC)
+  
   if (fit.type=="glm")
     cat("Fitting method = GLM (logit)\n")
   if (fit.type=="rf")
     cat("Fitting method = Random Forest\n")
-
+  
   auc <- c()
   # cases <- c()
   for (i in 1:n)
@@ -898,7 +898,7 @@ cv.glm <- function(formula, data, target.var, n, fit.type="glm", train.rate=0.7)
       cv.fit <- randomForest(formula=formula, data=trainData, n.tree=100, proximity=FALSE)
       testData$score <- predict(cv.fit, testData, type="prob")[,1]
     }
-    auc[i] <- as.numeric(roc(testData[,target.var], testData$score)$auc)
+    auc[i] <- as.numeric(AUC:auc(testData$score, testData[,target.var]))
     #cases[i] <- complete.cases(trainData[,as.character(attr(terms(formula(formula)), 'variables'))[-c(1,2)]])
   }
   cat("\nIteration Results:")
@@ -940,33 +940,33 @@ find.optimal.subset <- function(x, y)
 #' @export
 create.woe <- function(x, vars=colnames(x), y)
 {
-
+  
   for (i in vars)
     if (class(x[,i])!='factor')
       stop(paste(i," is not a factor! To compute WOEs all variables must be factors",sep=""))
-
+  
   if (length(levels(y)) != 2)
     stop(paste("Target variable should be binary! Now it has ", length(levels(y)), " levels", sep=""))
-
+  
   result <- data.frame(var=character(0), category=character(0), woe=numeric(0))
   for (i in 1:length(vars))
   {
     cat("\rCalculating WOE for variable ",i," / ",length(vars),"\r",sep="")
-
+    
     d <- merge(data.frame(table(x[y==0,vars[i]])), data.frame(table(x[y==1,vars[i]])), by.x='Var1', by.y='Var1', all.x=TRUE, all.y=TRUE)
     d$var <- vars[i]
     d<-d[,c(4,1,2,3)]
     colnames(d) <- c('var','category','cnt.0','cnt.1')
-
+    
     total0 <- sum(d[,'cnt.0'])
     total1 <- sum(d[,'cnt.1'])
     d$woe <- log((d[,'cnt.0'] / total0) / (d[,'cnt.1'] / total1))
-
+    
     d$woe[d$woe==Inf] <- 2 * max(d$woe[d$woe!=Inf])
     d$woe[d$woe==-Inf] <- 2 * min(d$woe[d$woe!=-Inf])
     d$woe[d$woe==Inf] <- 1
     d$woe[d$woe==-Inf] <- -1
-
+    
     d <- d[,c('var','category','woe')]
     result <- rbind(result, d)
   }
@@ -985,16 +985,16 @@ create.woe <- function(x, vars=colnames(x), y)
 #' @export
 woe.apply <- function(x, woe.map)
 {
-
+  
   if (nrow(woe.map[,c('var','category')]) != nrow(unique(woe.map[,c('var','category')])))
     stop("Non-unique categories. Check WOE mapping.")
-
+  
   vars <- unique(woe.map$var)
-
+  
   # Set row numbers as IDs (to merge intermediate results into initial table)
   rownames(x) <- NULL
   x$row <- rownames(x)
-
+  
   for (i in 1:length(vars))
   {
     cat("\rApplying WOE to variable ",i,"/",length(vars),"\r",sep="")
@@ -1005,13 +1005,13 @@ woe.apply <- function(x, woe.map)
     x <- merge(x, woe.var, by.x='row', by.y='row', all.x=TRUE)
   }
   cat("\n")
-
+  
   # Reset to initial sorting
   x <- x[order(x$row),]
-
+  
   # Delete temporary attribute
   x$row <- NULL
-
+  
   return (x)
 }
 
@@ -1026,35 +1026,35 @@ woe.apply <- function(x, woe.map)
 #' compute.woe(df$var, df$target)
 #' @export
 compute.woe <- function(factor, target)
-  {
-
-    if (class(target) != "factor")
-      stop("target variable must be factor")
-
-    if (class(factor) != "factor")
-      stop("factor variable must be factor")
-
-    x <- table(factor, target)
-    n.categories <- nrow(x)
-    x <- cbind(x,rep(0,n.categories))
-    x <- cbind(x,rep(0,n.categories))
-    x <- cbind(x,rep(0,n.categories))
-    x <- cbind(x,rep(0,n.categories))
-    colnames(x) <- c('0','1','rate','avg','lift','woe')
-    x <- rbind(x,c(0,0,0,0,0,0))
-    rownames(x)[n.categories+1] <- 'Total'
-    x[n.categories+1,1] <- sum(x[1:n.categories,1])
-    x[n.categories+1,2] <- sum(x[1:n.categories,2])
-    x[,3] <- round(x[,2] / ( x[,1] + x[,2] ), 2)
-    x[,4] <- x[n.categories+1,3]
-    x[,5] <- round(x[,3] / x[,4], 2)
-    x[,6] <- log((x[,2] / x[,1]) / (x[n.categories+1,2] / x[n.categories+1,1]))
-
-    x <- x[c(order(x[1:n.categories,5], decreasing=TRUE),n.categories+1),]
-
-    return (x)
-
-  }
+{
+  
+  if (class(target) != "factor")
+    stop("target variable must be factor")
+  
+  if (class(factor) != "factor")
+    stop("factor variable must be factor")
+  
+  x <- table(factor, target)
+  n.categories <- nrow(x)
+  x <- cbind(x,rep(0,n.categories))
+  x <- cbind(x,rep(0,n.categories))
+  x <- cbind(x,rep(0,n.categories))
+  x <- cbind(x,rep(0,n.categories))
+  colnames(x) <- c('0','1','rate','avg','lift','woe')
+  x <- rbind(x,c(0,0,0,0,0,0))
+  rownames(x)[n.categories+1] <- 'Total'
+  x[n.categories+1,1] <- sum(x[1:n.categories,1])
+  x[n.categories+1,2] <- sum(x[1:n.categories,2])
+  x[,3] <- round(x[,2] / ( x[,1] + x[,2] ), 2)
+  x[,4] <- x[n.categories+1,3]
+  x[,5] <- round(x[,3] / x[,4], 2)
+  x[,6] <- log((x[,2] / x[,1]) / (x[n.categories+1,2] / x[n.categories+1,1]))
+  
+  x <- x[c(order(x[1:n.categories,5], decreasing=TRUE),n.categories+1),]
+  
+  return (x)
+  
+}
 
 
 
